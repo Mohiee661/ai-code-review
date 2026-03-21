@@ -28,3 +28,5 @@ def get_reviews(repo_owner: str, repo_name: str):
     from database import get_reviews_by_repo
     repo_full_name = f"{repo_owner}/{repo_name}"
     return get_reviews_by_repo(repo_full_name)
+
+#test
