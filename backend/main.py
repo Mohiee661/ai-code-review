@@ -1,7 +1,10 @@
 import os
+import sys
+sys.path.append(os.path.dirname(__file__))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from webhook import router as webhook_router
+import webhook
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,13 +18,11 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-app.include_router(webhook_router)
-
+app.include_router(webhook.router)
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
 
 @app.get("/reviews/{repo_owner}/{repo_name}")
 def get_reviews(repo_owner: str, repo_name: str):
