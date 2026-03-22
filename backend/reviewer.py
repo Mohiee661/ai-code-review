@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 HF_API_TOKEN = os.environ.get("HUGGINGFACE_API_TOKEN")
-HF_MODEL = "bigcode/starcoder2-3b"
+HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 HF_API_URL = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
 
 HEADERS = {
@@ -17,37 +17,35 @@ HEADERS = {
 
 
 def build_prompt(formatted_diff):
-    return f"""<review>
-You are a senior software engineer doing a code review.
-Analyze the following code changes and return a JSON array of issues found.
+    return f"""<s>[INST] You are a senior software engineer performing a code review.
 
-Each issue must have these fields:
-- file: filename as a string
-- line: line number as an integer
-- severity: exactly one of "critical", "warning", "suggestion"
-- category: exactly one of "security", "bug", "style", "performance"
-- message: short clear explanation of the issue
-- suggestion: fixed code as a string, or null if no fix needed
+Analyze the following code changes and identify ALL issues including security vulnerabilities, bugs, hardcoded secrets, SQL injection, and bad practices.
 
-Rules:
-- Only return a raw JSON array
-- No markdown, no explanation, no extra text
-- If no issues found return an empty array []
+Return ONLY a valid JSON array. No explanation, no markdown, no extra text.
 
-Code changes:
+Each object in the array must have exactly these fields:
+- "file": filename string
+- "line": line number integer
+- "severity": one of "critical", "warning", "suggestion"
+- "category": one of "security", "bug", "style", "performance"
+- "message": explanation string
+- "suggestion": fixed code string or null
+
+If no issues found return empty array [].
+
+Code changes to review:
 {formatted_diff}
-</review>
-JSON:"""
+[/INST]"""
 
 
 def call_hf_model(prompt):
     payload = {
         "inputs": prompt,
         "parameters": {
-            "max_new_tokens": 800,
+            "max_new_tokens": 1000,
             "temperature": 0.1,
             "return_full_text": False,
-            "stop": ["</s>", "<|endoftext|>"]
+            "stop": ["</s>"]
         }
     }
 
@@ -56,7 +54,7 @@ def call_hf_model(prompt):
             HF_API_URL,
             headers=HEADERS,
             json=payload,
-            timeout=60
+            timeout=120
         )
 
         if response.status_code == 503:
@@ -87,7 +85,7 @@ def parse_model_response(raw_text):
         return []
 
     try:
-        match = re.search(r'\[.*?\]', raw_text, re.DOTALL)
+        match = re.search(r'\[.*\]', raw_text, re.DOTALL)
         if match:
             parsed = json.loads(match.group())
             if isinstance(parsed, list):
@@ -158,7 +156,7 @@ def review_diff(formatted_diff):
     if error == "model_loading":
         return {
             "status": "model_loading",
-            "message": "Model is warming up, please retry in 20 seconds",
+            "message": "Model is warming up, retry in 30 seconds",
             "comments": [],
             "score": None,
             "check_status": "pending",
@@ -168,7 +166,7 @@ def review_diff(formatted_diff):
     if error == "rate_limited":
         return {
             "status": "rate_limited",
-            "message": "HuggingFace rate limit hit, please retry shortly",
+            "message": "Rate limit hit, retry shortly",
             "comments": [],
             "score": None,
             "check_status": "pending",
