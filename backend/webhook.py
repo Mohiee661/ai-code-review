@@ -11,6 +11,7 @@ from database import (
     insert_comment,
     insert_file_reviewed
 )
+from github_comments import post_review_comments
 
 load_dotenv()
 
@@ -97,6 +98,14 @@ async def webhook(request: Request):
             message=comment.get("message", ""),
             suggestion=comment.get("suggestion", None)
         )
+
+    post_review_comments(
+        repo_full_name=repo_full_name,
+        pr_number=pr_number,
+        comments=review_result["comments"],
+        summary=review_result["summary"],
+        check_status=review_result["check_status"]
+    )
 
     return {
         "message": "review complete",
